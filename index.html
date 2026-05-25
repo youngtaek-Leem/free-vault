@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="ko"><head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Connect Vault">
+<meta name="theme-color" content="#0c0c18">
+<title>Connect Vault</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+--bg:#0c0c18;--bg2:#13131f;--bg3:#1a1a2e;
+--card:#16162a;--card2:#1e1e36;
+--border:rgba(255,255,255,0.08);
+--accent:#6366f1;--accent2:#818cf8;--aglow:rgba(99,102,241,0.3);
+--text:#e8e8f0;--text2:#9898b0;--text3:#5a5a7a;
+--ok:#34d399;--err:#f87171;
+--r:14px;--rs:10px;
+--st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
+}
+html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(--text);
+font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;
+-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;user-select:auto;-webkit-user-select:auto;cursor:pointer}
+.scr{position:fixed;top:0;left:0;right:0;bottom:0;display:none;flex-direction:column;z-index:1}
+.scr.on{display:flex;z-index:10}
+/* LOGIN */
+#sLogin{background:radial-gradient(ellipse at 50% 25%,#1a1550 0%,#0c0c18 65%);align-items:center;justify-content:center;padding:20px}
+.lgCard{width:100%;max-width:380px;background:rgba(22,22,42,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+border:1px solid var(--border);border-radius:24px;padding:36px 28px;display:flex;flex-direction:column;align-items:center;gap:18px;
+box-shadow:0 20px 60px rgba(0,0,0,.5),0 0 0 1px rgba(99,102,241,.1)}
+.vIcon{width:72px;height:72px;background:linear-gradient(135deg,#4f46e5,#818cf8);border-radius:20px;
+display:flex;align-items:center;justify-content:center;font-size:36px;
+box-shadow:0 8px 24px rgba(99,102,241,.4);animation:flt 3s ease-in-out infinite}
+@keyframes flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.lgCard h1{font-size:22px;font-weight:700;background:linear-gradient(135deg,#e8e8f0,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.lgCard p{font-size:12px;color:var(--text3);margin-top:2px;text-align:center}
+.iWrap{position:relative;width:100%}
+.iWrap input{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:var(--rs);
+padding:13px 42px 13px 14px;color:var(--text);font-size:15px;outline:none;transition:.2s;-webkit-appearance:none}
+.iWrap input:focus{border-color:var(--accent);background:rgba(99,102,241,.08);box-shadow:0 0 0 3px var(--aglow)}
+.iWrap input::placeholder{color:var(--text3)}
+.eyeBtn{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:4px}
+.btn{width:100%;padding:14px;border:none;border-radius:var(--rs);font-size:15px;font-weight:600;cursor:pointer;transition:.2s;letter-spacing:.2px}
+.btnP{background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;box-shadow:0 4px 15px rgba(99,102,241,.4)}
+.btnP:active{transform:scale(.98)}
+.btnS{background:rgba(255,255,255,.06);color:var(--text2);border:1px solid var(--border)}
+.btnS:active{background:rgba(255,255,255,.1)}
+.divTxt{font-size:12px;color:var(--text3);text-align:center;position:relative}
+.divTxt::before,.divTxt::after{content:"";position:absolute;top:50%;width:38%;height:1px;background:var(--border)}
+.divTxt::before{left:0}.divTxt::after{right:0}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+.shake{animation:shake .4s ease}
+/* VAULT */
+#sVault{background:var(--bg);padding-top:var(--st);padding-bottom:var(--sb)}
+.vHdr{background:rgba(12,12,24,.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+border-bottom:1px solid var(--border);padding:14px 16px 10px;flex-shrink:0}
+.hTop{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.hLogo{display:flex;align-items:center;gap:8px}
+.hLogo .ico{width:30px;height:30px;background:linear-gradient(135deg,#4f46e5,#818cf8);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.hLogo span{font-size:16px;font-weight:700}
+.hActs{display:flex;gap:6px}
+.icoBtn{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);
+display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;transition:.2s}
+.icoBtn:active{transform:scale(.95)}
+.srch{position:relative}
+.srch input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:9px 12px 9px 36px;
+color:var(--text);font-size:14px;outline:none;transition:.2s;-webkit-appearance:none}
+.srch input:focus{border-color:var(--accent)}
+.srch input::placeholder{color:var(--text3)}
+.srchIco{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:14px;pointer-events:none}
+.vBody{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 12px 80px;-webkit-overflow-scrolling:touch}
+/* CARDS */
+.pCard{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 14px;margin-bottom:10px;
+display:flex;align-items:center;gap:12px;transition:.2s}
+.pCard:active{background:var(--card2)}
+.pAvatar{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;font-weight:700;color:#fff}
+.pInfo{flex:1;min-width:0}
+.pSvc{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pUsr{font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.pPw{font-size:12px;color:var(--text3);margin-top:4px;font-family:monospace;letter-spacing:1px}
+.pMemo{font-size:11px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+.pMemo span{background:rgba(99,102,241,.12);border-radius:4px;padding:1px 6px;color:var(--accent2)}
+textarea.mInput{resize:vertical;min-height:72px;line-height:1.5;font-family:inherit}
+.pActs{display:flex;gap:6px;flex-shrink:0}
+.smBtn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);
+color:var(--text2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;transition:.2s}
+.smBtn:active{transform:scale(.9)}
+.smBtn.del{color:var(--err);border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.08)}
+.smBtn.ok{color:var(--ok);border-color:rgba(52,211,153,.3)}
+.smBtn.copied{color:#fff!important;background:var(--ok)!important;border-color:var(--ok)!important;transform:scale(1.1);transition:transform .15s}
+.smBtn.edit{color:var(--accent2);border-color:rgba(129,140,248,.3);background:rgba(99,102,241,.08)}
+/* FAB */
+.fab{position:fixed;bottom:calc(24px + var(--sb));right:20px;width:52px;height:52px;border-radius:16px;
+background:linear-gradient(135deg,#4f46e5,#6366f1);border:none;color:#fff;font-size:24px;cursor:pointer;
+box-shadow:0 4px 20px rgba(99,102,241,.5);display:flex;align-items:center;justify-content:center;transition:.2s;z-index:10}
+.fab:active{transform:scale(.92)}
+/* EMPTY */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:50%;gap:10px;color:var(--text3);text-align:center}
+.empty .bigIco{font-size:48px;opacity:.4}
+.empty p{font-size:14px}
+/* MODAL */
+.overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+z-index:1000;display:none;align-items:flex-end;justify-content:center}
+.overlay.on{display:flex}
+.mPanel{width:100%;max-width:480px;background:var(--bg2);border-radius:24px 24px 0 0;padding:20px 20px calc(20px + var(--sb));
+transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1)}
+.overlay.on .mPanel{transform:translateY(0)}
+.mHdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.mHdr h3{font-size:17px;font-weight:700}
+.closeBtn{width:28px;height:28px;border-radius:50%;background:var(--bg3);border:none;color:var(--text2);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.mRow{margin-bottom:12px}
+.mRow label{font-size:12px;color:var(--text2);margin-bottom:6px;display:block}
+.mInput{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:12px 14px;
+color:var(--text);font-size:15px;outline:none;transition:.2s;-webkit-appearance:none}
+.mInput:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--aglow)}
+.mInput::placeholder{color:var(--text3)}
+/* TOAST */
+.toast{position:fixed;bottom:calc(80px + var(--sb));left:50%;transform:translateX(-50%) translateY(20px);
+background:rgba(30,30,50,.95);border:1px solid var(--border);border-radius:10px;padding:10px 18px;
+font-size:13px;color:var(--text);opacity:0;pointer-events:none;transition:.25s;z-index:999;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* GENERATOR */
+.genOut{background:var(--bg3);border-radius:var(--rs);padding:14px;margin-bottom:14px;
+font-family:monospace;font-size:16px;letter-spacing:2px;color:var(--accent2);text-align:center;word-break:break-all}
+.slider{width:100%;accent-color:var(--accent)}
+.genOpts{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.chip{padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);
+color:var(--text2);font-size:12px;cursor:pointer;transition:.2s}
+.chip.active{border-color:var(--accent);background:rgba(99,102,241,.15);color:var(--accent2)}
+/* SETTINGS */
+.setRow{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)}
+.setRow:last-child{border-bottom:none}
+.setInfo h4{font-size:14px;font-weight:600}
+.setInfo p{font-size:12px;color:var(--text3);margin-top:2px}
+.setBtn{padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;border:none;cursor:pointer;transition:.2s}
+.setBtn.blue{background:rgba(99,102,241,.15);color:var(--accent2)}
+.setBtn.red{background:rgba(248,113,113,.12);color:var(--err)}
+input,textarea{user-select:text;-webkit-user-select:text}
+.btn,.icoBtn,.smBtn,.eyeBtn,.closeBtn,.chip,.setBtn{cursor:pointer}
+@media(min-width:600px){.vBody{padding:16px 20% 80px}}
+/* CLOUD STATUS */
+.cloudStat{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);margin-top:4px;transition:color .3s}
+.cloudStat.on{color:var(--ok)}
+.cloudStat.syncing{color:#f59e0b}
+.cloudStat.fail{color:var(--err)}
+.cloudStat .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;transition:background .3s}
+.cloudStat.syncing .dot{animation:syncPulse 1s ease-in-out infinite}
+.syncTime{color:var(--text3);font-size:10px;opacity:.7}
+@keyframes syncPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.25;transform:scale(.7)}}
+/* TYPE PICKER */
+.typeGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:4px}
+.typeCard{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:16px 8px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;transition:.2s;color:var(--text);width:100%}
+.typeCard:active{background:var(--card2);border-color:var(--accent)}
+.typeIco{font-size:28px}.typeName{font-size:13px;font-weight:600;margin-top:2px}
+.typeDesc{font-size:10px;color:var(--text3);text-align:center;line-height:1.4}
+/* ENTRY TYPE */
+.noteAvatar{background:linear-gradient(135deg,#8b5cf6,#a78bfa)!important}
+.cardAvatar{background:linear-gradient(135deg,#0ea5e9,#38bdf8)!important}
+.pExtra{font-size:11px;color:var(--text3);margin-top:3px}
+.tallArea{min-height:120px}
+/* NOTE FULL-HEIGHT PANEL */
+.notePanel{height:88vh;display:flex;flex-direction:column}
+.notePanel .noteBody{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.notePanel .noteBody .mRow+.mRow{flex:1;display:flex;flex-direction:column;min-height:0}
+.notePanel .noteBody .mRow+.mRow label{flex-shrink:0}
+.notePanel .noteBody .tallArea{flex:1;resize:none;min-height:0}
+.notePanel>.btn{flex-shrink:0;margin-top:10px!important}
+</style></head><body>
+
+
+<!-- LOGIN -->
+<div id="sLogin" class="scr on">
+<div class="lgCard">
+<div class="vIcon">🔐</div>
+<div style="text-align:center"><h1>Connect Vault</h1><p>마스터 패스워드로 금고를 잠금해제하세요</p></div>
+<div class="iWrap">
+<input type="password" id="pwIn" placeholder="마스터 패스워드" autocomplete="current-password">
+<button class="eyeBtn" onclick="toggleEye('pwIn',this)">👁</button>
+</div>
+<button class="btn btnP" onclick="app.login()">🔓 금고 열기</button>
+<div class="divTxt">또는</div>
+<button class="btn btnS" onclick="showOverlay('oSetup')">마스터 패스워드 설정</button>
+</div>
+</div>
+<!-- VAULT -->
+<div id="sVault" class="scr">
+<div class="vHdr">
+<div class="hTop">
+<div class="hLogo"><div class="ico">🔐</div><span>Connect Vault</span></div>
+<div class="hActs">
+<button class="icoBtn" onclick="showOverlay('oCloud')" id="cloudBtn" title="클라우드 동기화">☁️</button>
+<button class="icoBtn" onclick="showOverlay('oGen')" title="비밀번호 생성기">🎲</button>
+
+<button class="icoBtn" onclick="showOverlay('oSet')" title="설정">⚙️</button>
+<button class="icoBtn" onclick="app.lock()" title="잠그기">🔒</button>
+</div>
+</div>
+<div class="srch"><span class="srchIco">🔍</span><input type="search" id="srchIn" placeholder="서비스 또는 아이디 검색..." oninput="app.render()"></div>
+<div id="cloudStatus" class="cloudStat" style="display:none"><div class="dot" id="syncDot"></div><span id="syncMsg">연결됨</span><span id="syncTime" class="syncTime"></span></div>
+</div>
+
+<div class="vBody" id="vBody"></div>
+<button class="fab" onclick="showOverlay('oType')">＋</button>
+</div>
+<!-- ADD MODAL -->
+<div class="overlay" id="oAdd">
+<div class="mPanel" id="addPanel">
+<div class="mHdr"><h3 id="addTitle">새 항목 추가</h3><button class="closeBtn" onclick="hideOverlay('oAdd')">✕</button></div>
+<!-- 로그인 -->
+<div id="addLogin">
+<div class="mRow"><label>서비스명</label><input class="mInput" id="aSvc" placeholder="예: Google, Netflix"></div>
+<div class="mRow"><label>아이디 / 이메일</label><input class="mInput" id="aUsr" placeholder="user@email.com" autocomplete="off"></div>
+<div class="mRow"><label>비밀번호</label>
+<div class="iWrap"><input class="mInput" type="password" id="aPw" placeholder="비밀번호" autocomplete="new-password">
+<button class="eyeBtn" onclick="toggleEye('aPw',this)">👁</button></div></div>
+<div class="mRow"><label>메모 (선택)</label><textarea class="mInput" id="aMemo" placeholder="URL, 힌트, 메모 등..."></textarea></div>
+</div>
+<!-- 안심 노트 -->
+<div id="addNote" class="noteBody" style="display:none">
+<div class="mRow"><label>제목</label><input class="mInput" id="aNoteTitle" placeholder="노트 제목"></div>
+<div class="mRow"><label>내용</label><textarea class="mInput tallArea" id="aNoteContent" placeholder="비밀 내용을 입력하세요..."></textarea></div>
+</div>
+<!-- 신용카드 -->
+<div id="addCard" style="display:none">
+<div class="mRow"><label>카드 이름</label><input class="mInput" id="aCardName" placeholder="예: 현대카드 블루"></div>
+<div class="mRow"><label>카드 번호</label><input class="mInput" id="aCardNum" placeholder="0000 0000 0000 0000" maxlength="19" oninput="fmtCard(this)" autocomplete="off"></div>
+<div style="display:flex;gap:8px">
+<div class="mRow" style="flex:1"><label>유효기간</label><input class="mInput" id="aCardExp" placeholder="MM/YY" maxlength="5" oninput="fmtExp(this)"></div>
+<div class="mRow" style="flex:1"><label>CVV</label>
+<div class="iWrap"><input class="mInput" type="password" id="aCardCvv" placeholder="CVV" maxlength="4" autocomplete="off">
+<button class="eyeBtn" onclick="toggleEye('aCardCvv',this)">👁</button></div></div>
+</div>
+<div class="mRow"><label>카드 소유자</label><input class="mInput" id="aCardHolder" placeholder="홍길동 / HONG GILDONG"></div>
+<div class="mRow"><label>메모 (선택)</label><input class="mInput" id="aCardMemo" placeholder="메모..."></div>
+</div>
+<button class="btn btnP" style="margin-top:6px" onclick="app.addEntry()">저장</button>
+</div>
+</div>
+<!-- GENERATOR MODAL -->
+<div class="overlay" id="oGen">
+<div class="mPanel">
+<div class="mHdr"><h3>🎲 비밀번호 생성기</h3><button class="closeBtn" onclick="hideOverlay('oGen')">✕</button></div>
+<div class="genOut" id="genOut">생성 중...</div>
+<div class="mRow"><label>길이: <span id="lenVal">16</span>자</label>
+<input class="slider" type="range" min="8" max="32" value="16" id="lenSlider" oninput="genPw()"></div>
+<div class="genOpts">
+<span class="chip active" data-k="upper" onclick="toggleChip(this)">대문자 A-Z</span>
+<span class="chip active" data-k="lower" onclick="toggleChip(this)">소문자 a-z</span>
+<span class="chip active" data-k="num" onclick="toggleChip(this)">숫자 0-9</span>
+<span class="chip active" data-k="sym" onclick="toggleChip(this)">특수문자</span>
+</div>
+<div style="display:flex;gap:8px;margin-top:4px">
+<button class="btn btnS" onclick="genPw()">🔄 새로 생성</button>
+<button class="btn btnP" onclick="copyGen()">📋 복사</button>
+</div>
+</div>
+</div>
+<!-- SETTINGS MODAL -->
+<div class="overlay" id="oSet">
+<div class="mPanel">
+<div class="mHdr"><h3>⚙️ 설정</h3><button class="closeBtn" onclick="hideOverlay('oSet')">✕</button></div>
+<div class="setRow">
+<div class="setInfo"><h4>금고 내보내기</h4><p>암호화된 백업 JSON 저장</p></div>
+<button class="setBtn blue" onclick="app.exportVault()">내보내기</button>
+</div>
+<div class="setRow">
+<div class="setInfo"><h4>금고 가져오기</h4><p>백업 파일에서 복원</p></div>
+<button class="setBtn blue" onclick="document.getElementById('importFile').click()">가져오기</button>
+</div>
+<div class="setRow">
+<div class="setInfo"><h4>마이그레이션 가져오기</h4><p>migrate.py로 변환한 파일</p></div>
+<button class="setBtn blue" onclick="document.getElementById('migrFile').click()">불러오기</button>
+</div>
+<div class="setRow">
+<div class="setInfo"><h4>마스터 패스워드 변경</h4><p>모든 데이터 초기화됨</p></div>
+<button class="setBtn red" onclick="hideOverlay('oSet');showOverlay('oSetup')">변경</button>
+</div>
+<input type="file" id="importFile" accept=".json" style="display:none" onchange="app.importVault(this)">
+<input type="file" id="migrFile" accept=".json" style="display:none" onchange="app.importMigrate(this)">
+</div>
+</div>
+<!-- EDIT MODAL -->
+<div class="overlay" id="oEdit">
+<div class="mPanel" id="editPanel">
+<div class="mHdr"><h3 id="editTitle">✏️ 항목 수정</h3><button class="closeBtn" onclick="hideOverlay('oEdit')">✕</button></div>
+<!-- 로그인 수정 -->
+<div id="editLogin">
+<div class="mRow"><label>서비스명</label><input class="mInput" id="eSvc" placeholder="예: Google, Netflix"></div>
+<div class="mRow"><label>아이디 / 이메일</label><input class="mInput" id="eUsr" placeholder="user@email.com" autocomplete="off"></div>
+<div class="mRow"><label>비밀번호</label>
+<div style="display:flex;gap:6px;align-items:center">
+  <div class="iWrap" style="flex:1">
+    <input class="mInput" type="password" id="ePw" placeholder="비밀번호" autocomplete="new-password">
+    <button class="eyeBtn" id="ePwEye" onclick="toggleEye('ePw',this)">👁</button>
+  </div>
+  <button class="smBtn ok" id="ePwCopy" onclick="app.copyEditPw()" title="비밀번호 복사">📋</button>
+</div></div>
+<div class="mRow"><label>메모 (선택)</label><textarea class="mInput" id="eMemo" placeholder="URL, 힌트, 메모 등..."></textarea></div>
+</div>
+<!-- 안심 노트 수정 -->
+<div id="editNote" class="noteBody" style="display:none">
+<div class="mRow"><label>제목</label><input class="mInput" id="eNoteTitle" placeholder="노트 제목"></div>
+<div class="mRow"><label>내용</label><textarea class="mInput tallArea" id="eNoteContent" placeholder="비밀 내용을 입력하세요..."></textarea></div>
+</div>
+<!-- 신용카드 수정 -->
+<div id="editCard" style="display:none">
+<div class="mRow"><label>카드 이름</label><input class="mInput" id="eCardName" placeholder="예: 현대카드 블루"></div>
+<div class="mRow"><label>카드 번호</label>
+<div style="display:flex;gap:6px;align-items:center">
+  <input class="mInput" style="flex:1" id="eCardNum" placeholder="0000 0000 0000 0000" maxlength="19" oninput="fmtCard(this)" autocomplete="off">
+  <button class="smBtn ok" id="eCardNumCopy" onclick="app.copyCardNum()" title="카드번호 복사">📋</button>
+</div></div>
+<div style="display:flex;gap:8px">
+<div class="mRow" style="flex:1"><label>유효기간</label><input class="mInput" id="eCardExp" placeholder="MM/YY" maxlength="5" oninput="fmtExp(this)"></div>
+<div class="mRow" style="flex:1"><label>CVV</label>
+<div class="iWrap"><input class="mInput" type="password" id="eCardCvv" placeholder="CVV" maxlength="4" autocomplete="off">
+<button class="eyeBtn" onclick="toggleEye('eCardCvv',this)">👁</button></div></div>
+</div>
+<div class="mRow"><label>카드 소유자</label><input class="mInput" id="eCardHolder" placeholder="홍길동 / HONG GILDONG"></div>
+<div class="mRow"><label>메모 (선택)</label><input class="mInput" id="eCardMemo" placeholder="메모..."></div>
+</div>
+<button class="btn btnP" style="margin-top:6px" onclick="app.saveEdit()">수정 저장</button>
+</div>
+</div>
+<!-- SETUP MODAL -->
+<div class="overlay" id="oSetup">
+<div class="mPanel">
+<div class="mHdr"><h3>🛡️ 마스터 패스워드 설정</h3><button class="closeBtn" onclick="hideOverlay('oSetup')">✕</button></div>
+<p style="font-size:13px;color:var(--text3);margin-bottom:14px">⚠️ 설정 시 기존 데이터가 모두 삭제됩니다.</p>
+<div class="mRow"><label>새 마스터 패스워드</label><input class="mInput" type="password" id="newPw" placeholder="8자 이상 권장"></div>
+<div class="mRow"><label>확인</label><input class="mInput" type="password" id="newPw2" placeholder="동일하게 입력"></div>
+<button class="btn btnP" style="margin-top:6px" onclick="app.setup()">설정 완료</button>
+</div>
+</div>
+<!-- CLOUD MODAL -->
+<div class="overlay" id="oCloud">
+<div class="mPanel">
+<div class="mHdr"><h3>☁️ 클라우드 동기화 설정</h3><button class="closeBtn" onclick="hideOverlay('oCloud')">✕</button></div>
+<div id="cloudSetup">
+<div class="mRow"><label>Supabase URL</label><input class="mInput" id="sbUrl" placeholder="https://your-project.supabase.co"></div>
+<div class="mRow"><label>Supabase Anon Key</label><input class="mInput" id="sbKey" placeholder="your-anon-key"></div>
+<button class="btn btnP" onclick="cloud.init()">연결 및 초기화</button>
+</div>
+<div id="cloudAuth" style="display:none">
+<div class="mRow"><label>이메일</label><input class="mInput" id="cEmail" placeholder="email@example.com"></div>
+<div class="mRow"><label>비밀번호</label><input class="mInput" type="password" id="cPw" placeholder="클라우드 계정 비밀번호"></div>
+<div style="display:flex;gap:8px;margin-top:10px">
+<button class="btn btnP" onclick="cloud.login()">로그인</button>
+<button class="btn btnS" onclick="cloud.signup()">회원가입</button>
+</div>
+</div>
+<div id="cloudInfo" style="display:none">
+<div class="setRow"><div class="setInfo"><h4 id="userMail">user@example.com</h4><p>동기화 활성화됨</p></div><button class="setBtn red" onclick="cloud.logout()">로그아웃</button></div>
+</div>
+</div>
+</div>
+
+<!-- TYPE PICKER MODAL -->
+<div class="overlay" id="oType">
+<div class="mPanel">
+<div class="mHdr"><h3>항목 유형 선택</h3><button class="closeBtn" onclick="hideOverlay('oType')">✕</button></div>
+<div class="typeGrid">
+<button class="typeCard" onclick="app.openAdd('login')">
+  <div class="typeIco">🔐</div>
+  <div class="typeName">로그인</div>
+  <div class="typeDesc">웹사이트, 앱 계정</div>
+</button>
+<button class="typeCard" onclick="app.openAdd('note')">
+  <div class="typeIco">📝</div>
+  <div class="typeName">안심 노트</div>
+  <div class="typeDesc">비밀 메모, 시크릿 정보</div>
+</button>
+<button class="typeCard" onclick="app.openAdd('card')">
+  <div class="typeIco">💳</div>
+  <div class="typeName">신용카드</div>
+  <div class="typeDesc">카드번호, CVV, 유효기간</div>
+</button>
+</div>
+</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+var $ = function(id){ return document.getElementById(id); };
+function showOverlay(id){
+  var el = $(id);
+  if(el) {
+    el.style.display = "flex";
+    el.classList.add("on");
+  }
+}
+function hideOverlay(id){
+  var el = $(id);
+  if(el) {
+    el.style.display = "none";
+    el.classList.remove("on");
+  }
+}
+function toggleEye(inputId,btn){
+  var el = $(inputId);
+  if(!el) return;
+  el.type = el.type === "password" ? "text" : "password";
+  btn.textContent = el.type === "password" ? "👁" : "🙈";
+}
+function toast(msg,dur){
+  var t = $("toast");
+  if(!t) return;
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(function(){ t.classList.remove("show"); }, dur || 2200);
+}
+function b64(buf){
+  var binary = "";
+  var bytes = new Uint8Array(buf);
+  for (var i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+function unb64(s){
+  var binary = atob(s);
+  var bytes = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+function copyToClipboard(text) {
+  // 1) execCommand — 동기 실행이므로 사용자 제스처 컨텍스트를 유지함
+  //    file:// 및 비-HTTPS 환경에서도 가장 안정적
+  var ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none";
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  var ok = false;
+  try { ok = document.execCommand("copy"); } catch(e) {}
+  document.body.removeChild(ta);
+  if (ok) return Promise.resolve();
+
+  // 2) execCommand 불가(최신 브라우저 완전 제거) 시 Clipboard API 폴백
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  return Promise.reject(new Error("copy failed"));
+}
+function avatarColor(s){
+  var h=["#6366f1","#8b5cf6","#ec4899","#06b6d4","#10b981","#f59e0b","#ef4444"];
+  return h[(s||"").charCodeAt(0)%h.length];
+}
+function avatarLetter(s){
+  return (s||"?")[0].toUpperCase();
+}
+
+var C = {
+  key: null,
+  derive: function(pw, salt) {
+    var self = this;
+    return crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"])
+      .then(function(km) {
+        return crypto.subtle.deriveKey({name:"PBKDF2",salt:salt,iterations:100000,hash:"SHA-256"}, km, {name:"AES-GCM",length:256}, false, ["encrypt","decrypt"]);
+      })
+      .then(function(key) {
+        self.key = key;
+      });
+  },
+  encrypt: function(txt) {
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    return crypto.subtle.encrypt({name:"AES-GCM",iv:iv}, this.key, new TextEncoder().encode(txt))
+      .then(function(ct) {
+        var out = new Uint8Array(12 + ct.byteLength);
+        out.set(iv);
+        out.set(new Uint8Array(ct), 12);
+        return out;
+      });
+  },
+  decrypt: function(buf) {
+    var iv = buf.slice(0, 12), ct = buf.slice(12);
+    return crypto.subtle.decrypt({name:"AES-GCM",iv:iv}, this.key, ct)
+      .then(function(pt) {
+        return new TextDecoder().decode(pt);
+      });
+  },
+  salt: function() { return crypto.getRandomValues(new Uint8Array(16)); }
+};
+
+var DB = {
+  db: null,
+  init: function() {
+    var self = this;
+    return new Promise(function(res, rej) {
+      var r = indexedDB.open("ConnectVault", 2);
+      r.onupgradeneeded = function(e) {
+        var d = e.target.result;
+        if (e.oldVersion < 1) {
+          d.createObjectStore("cfg", {keyPath: "k"});
+          d.createObjectStore("pw", {keyPath: "id", autoIncrement: true});
+        } else if (e.oldVersion < 2) {
+          // v1→v2: 평문 메타데이터를 암호화 형식으로 전환 — 기존 데이터 초기화
+          d.deleteObjectStore("pw");
+          d.createObjectStore("pw", {keyPath: "id", autoIncrement: true});
+        }
+      };
+      r.onsuccess = function(e) {
+        self.db = e.target.result;
+        res();
+      };
+      r.onerror = function() { rej(new Error("DB Init Failed")); };
+    });
+  },
+  tx: function(stores, mode) { return this.db.transaction(stores, mode || "readonly"); },
+  getCfg: function(k) {
+    var self = this;
+    return new Promise(function(r) {
+      var t = self.tx("cfg").objectStore("cfg").get(k);
+      t.onsuccess = function() { r(t.result ? t.result.v : undefined); };
+    });
+  },
+  setCfg: function(k, v) {
+    var self = this;
+    return new Promise(function(r) {
+      var t = self.tx("cfg", "readwrite").objectStore("cfg").put({k: k, v: v});
+      t.onsuccess = function() { r(); };
+    });
+  },
+  getAll: function() {
+    var self = this;
+    return new Promise(function(r) {
+      var t = self.tx("pw").objectStore("pw").getAll();
+      t.onsuccess = function() { r(t.result); };
+    });
+  },
+  add: function(esvc, eusr, epw, ememo, tp) {
+    var self = this;
+    return new Promise(function(r) {
+      var t = self.tx("pw", "readwrite").objectStore("pw").add({esvc: esvc, eusr: eusr, epw: epw, ememo: ememo || null, tp: tp || "login", ts: new Date().toISOString()});
+      t.onsuccess = function() { r(t.result); };
+    });
+  },
+  addWithId: function(id, esvc, eusr, epw, ememo, ts, tp) {
+    var self = this;
+    return new Promise(function(r) {
+      var t = self.tx("pw", "readwrite").objectStore("pw").put({id: id, esvc: esvc, eusr: eusr, epw: epw, ememo: ememo || null, tp: tp || "login", ts: ts || new Date().toISOString()});
+      t.onsuccess = function() { r(t.result); };
+    });
+  },
+  getById: function(id) {
+    var self = this;
+    return new Promise(function(r) {
+      var t = self.tx("pw").objectStore("pw").get(id);
+      t.onsuccess = function() { r(t.result); };
+    });
+  },
+
+  del: function(id) {
+    var self = this;
+    return new Promise(function(r) {
+      var t = self.tx("pw", "readwrite").objectStore("pw").delete(id);
+      t.onsuccess = function() { r(); };
+    });
+  },
+  update: function(id, esvc, eusr, epw, ememo) {
+    var self = this;
+    return new Promise(function(r) {
+      var store = self.tx("pw", "readwrite").objectStore("pw");
+      var t = store.get(id);
+      t.onsuccess = function() {
+        var rec = t.result;
+        rec.esvc = esvc; rec.eusr = eusr;
+        if (epw) rec.epw = epw;
+        rec.ememo = ememo != null ? ememo : rec.ememo || null;
+        rec.updated = new Date().toISOString();
+        var u = store.put(rec);
+        u.onsuccess = function() { r(); };
+      };
+    });
+  },
+  clear: function() {
+    var self = this;
+    return new Promise(function(r) {
+      var t = self.tx("pw", "readwrite").objectStore("pw").clear();
+      t.onsuccess = function() { r(); };
+    });
+  }
+};
+
+/* ── 동기화 상태 표시 ───────────────────────────────────────── */
+var syncStatus = {
+  _failTimer: null,
+  _fmt: function() {
+    var d = new Date();
+    return d.getHours() + ":" + String(d.getMinutes()).padStart(2,"0");
+  },
+  _apply: function(cls, msg, time) {
+    var el = $("cloudStatus");
+    if (!el || el.style.display === "none") return;
+    el.className = "cloudStat " + cls;
+    $("syncMsg").textContent = msg;
+    $("syncTime").textContent = time || "";
+    if (this._failTimer) { clearTimeout(this._failTimer); this._failTimer = null; }
+  },
+  show: function() {
+    var el = $("cloudStatus");
+    if (!el) return;
+    el.style.display = "flex";
+    this._apply("on", "연결됨", "");
+  },
+  hide: function() {
+    var el = $("cloudStatus");
+    if (el) el.style.display = "none";
+  },
+  syncing: function(label) {
+    this._apply("syncing", label || "동기화 중...", "");
+  },
+  ok: function(label) {
+    this._apply("on", label || "동기화 완료", this._fmt());
+  },
+  fail: function(label) {
+    var self = this;
+    this._apply("fail", label || "동기화 실패", this._fmt());
+    // 5초 후 "연결됨" 으로 자동 복귀
+    this._failTimer = setTimeout(function() {
+      self._apply("on", "연결됨", "");
+    }, 5000);
+  }
+};
+
+var cloud = {
+  client: null,
+  user: null,
+  init: function() {
+    var url = $("sbUrl").value.trim(), key = $("sbKey").value.trim();
+    if(!url || !key) { toast("URL과 Key를 입력하세요"); return; }
+    try {
+      this.client = supabase.createClient(url, key);
+      localStorage.setItem("sb_url", url);
+      localStorage.setItem("sb_key", key);
+      this.showView();
+      toast("연결됨");
+    } catch(e) { toast("연결 실패"); }
+  },
+  showView: function() {
+    $("cloudSetup").style.display = "none";
+    if (this.user) {
+      $("cloudAuth").style.display = "none";
+      $("cloudInfo").style.display = "block";
+      $("userMail").textContent = this.user.email;
+      $("cloudBtn").textContent = "☁️✅";
+    } else {
+      $("cloudAuth").style.display = "block";
+      $("cloudInfo").style.display = "none";
+      $("cloudBtn").textContent = "☁️";
+    }
+    if (this.user) { syncStatus.show(); } else { syncStatus.hide(); }
+  },
+  signup: function() {
+    var self = this;
+    var email = $("cEmail").value.trim(), pw = $("cPw").value;
+    this.client.auth.signUp({email:email, password:pw}).then(function(res) {
+      if(res.error) throw res.error;
+      toast("가입 확인 이메일을 확인하세요");
+    }).catch(function(e) { toast("실패: " + e.message); });
+  },
+  login: function() {
+    var self = this;
+    var email = $("cEmail").value.trim(), pw = $("cPw").value;
+    this.client.auth.signInWithPassword({email:email, password:pw}).then(function(res) {
+      if(res.error) throw res.error;
+      self.user = res.data.user;
+      self.showView();
+      toast("클라우드 로그인 성공");
+      return self.syncPull();
+    }).catch(function(e) { toast("실패: " + e.message); });
+  },
+  logout: function() {
+    this.client.auth.signOut();
+    this.user = null;
+    this.showView();
+    toast("로그아웃됨");
+  },
+  syncPush: function(id) {
+    var self = this;
+    if(!this.user) return Promise.resolve();
+    syncStatus.syncing("업로드 중...");
+    return DB.getById(id).then(function(entry) {
+      if(!entry) return;
+      var data = {
+        user_id: self.user.id,
+        svc: b64(entry.esvc),
+        usr: b64(entry.eusr),
+        epw: b64(entry.epw),
+        memo: (entry.ememo && entry.ememo.byteLength > 0) ? b64(entry.ememo) : "",
+        tp: entry.tp || "login",
+        local_id: entry.id,
+        ts: entry.ts
+      };
+      return self.client.from("vault_entries").upsert(data, {onConflict: "user_id,local_id"});
+    }).then(function() {
+      syncStatus.ok("저장 완료");
+    }).catch(function(err) {
+      syncStatus.fail("업로드 실패");
+      throw err;
+    });
+  },
+  syncDel: function(id) {
+    if(!this.user) return Promise.resolve();
+    syncStatus.syncing("삭제 동기화 중...");
+    return this.client.from("vault_entries").delete().match({user_id: this.user.id, local_id: id})
+      .then(function() { syncStatus.ok("삭제 완료"); })
+      .catch(function() { syncStatus.fail("삭제 동기화 실패"); });
+  },
+  syncConfigPush: function(salt, verify) {
+    if(!this.user) return Promise.resolve();
+    syncStatus.syncing("설정 저장 중...");
+    return this.client.from("vault_config").upsert({
+      user_id: this.user.id,
+      salt: b64(salt),
+      verify: b64(verify),
+      updated_at: new Date().toISOString()
+    }).then(function() {
+      syncStatus.ok("설정 저장 완료");
+    }).catch(function() {
+      syncStatus.fail("설정 저장 실패");
+    });
+  },
+  syncConfigPull: function() {
+    var self = this;
+    if(!this.user) return Promise.resolve();
+    syncStatus.syncing("설정 불러오는 중...");
+    return this.client.from("vault_config").select("*").single().then(function(res) {
+      if(res.error) { syncStatus.ok(); return; } // 신규 유저: 오류 아님
+      var salt = unb64(res.data.salt), verify = unb64(res.data.verify);
+      return Promise.all([
+        DB.setCfg("salt", salt),
+        DB.setCfg("verify", verify)
+      ]).then(function() { syncStatus.ok("설정 불러오기 완료"); });
+    }).catch(function() {
+      syncStatus.fail("설정 불러오기 실패");
+    });
+  },
+  syncPull: function() {
+    var self = this;
+    if(!this.user) return;
+    syncStatus.syncing("데이터 불러오는 중...");
+    return this.client.from("vault_entries").select("*").then(function(res) {
+      if(res.error) throw res.error;
+      var promises = res.data.map(function(item) {
+        return DB.addWithId(
+          item.local_id,
+          unb64(item.svc),
+          unb64(item.usr),
+          unb64(item.epw),
+          item.memo ? unb64(item.memo) : null,
+          item.ts,
+          item.tp || "login"
+        );
+      });
+      return Promise.all(promises);
+    }).then(function() {
+      syncStatus.ok("동기화 완료");
+      app._refresh();
+    }).catch(function(err) {
+      syncStatus.fail("다운로드 실패");
+      console.error(err);
+    });
+  },
+  checkSession: function() {
+    var self = this;
+    var url = localStorage.getItem("sb_url"), key = localStorage.getItem("sb_key");
+    if(url && key) {
+      $("sbUrl").value = url; $("sbKey").value = key;
+      this.client = supabase.createClient(url, key);
+      this.client.auth.getUser().then(function(res) {
+        if(res.data.user) {
+          self.user = res.data.user;
+          self.showView();
+          self.subscribe();
+          self.syncPull();
+        }
+      });
+    }
+  },
+  subscribe: function() {
+    var self = this;
+    this.client.channel("changes")
+      .on("postgres_changes", {event: "*", schema: "public", table: "vault_entries"}, function(pay) {
+        if(pay.new && pay.new.user_id === self.user.id) {
+          self.syncPull();
+        }
+      })
+      .on("postgres_changes", {event: "*", schema: "public", table: "vault_config"}, function(pay) {
+        if(pay.new && pay.new.user_id === self.user.id) {
+          self.syncConfigPull();
+        }
+      })
+      .subscribe(function(status) {
+        if(status === "SUBSCRIBED") {
+          syncStatus.ok("실시간 동기화 활성");
+        } else if(status === "CLOSED" || status === "CHANNEL_ERROR") {
+          syncStatus.fail("실시간 연결 끊김");
+        }
+      });
+  }
+};
+
+
+var app = {
+  _cache: [], // 복호화된 항목 [{id, type, svc, usr, pw, memo, epw, ts}]
+  init: function() {
+    var self = this;
+    DB.init().then(function() {
+      var pwIn = $("pwIn");
+      if (pwIn) {
+        pwIn.addEventListener("keydown", function(e) {
+          if (e.key === "Enter") self.login();
+        });
+      }
+      document.querySelectorAll(".overlay").forEach(function(o) {
+        o.addEventListener("click", function(e) {
+          if (e.target === o) hideOverlay(o.id);
+        });
+      });
+      genPw();
+      cloud.checkSession();
+    }).catch(function(err) {
+      console.error(err);
+    });
+  },
+  login: function() {
+    var self = this;
+    var pw = $("pwIn").value;
+    if (!pw) { toast("패스워드를 입력하세요"); return; }
+    var salt, verify;
+    DB.getCfg("salt").then(function(s) {
+      salt = s;
+      return DB.getCfg("verify");
+    }).then(function(v) {
+      verify = v;
+      if (!salt || !verify) {
+        if (cloud.user) {
+          return cloud.syncConfigPull().then(function() {
+            return DB.getCfg("salt");
+          }).then(function(s2) {
+            salt = s2;
+            return DB.getCfg("verify");
+          }).then(function(v2) {
+            verify = v2;
+            if (!salt || !verify) throw new Error("SETUP_REQUIRED");
+            return C.derive(pw, salt);
+          });
+        }
+        throw new Error("SETUP_REQUIRED");
+      }
+      return C.derive(pw, salt);
+    }).then(function() {
+
+      return C.decrypt(verify);
+    }).then(function() {
+      self.showVault();
+    }).catch(function(err) {
+      if (err.message === "SETUP_REQUIRED") {
+        toast("먼저 패스워드를 설정하세요");
+      } else {
+        var el = $("pwIn");
+        el.classList.add("shake");
+        setTimeout(function() { el.classList.remove("shake"); }, 400);
+        toast("패스워드가 틀렸습니다");
+      }
+    });
+  },
+  setup: function() {
+    var self = this;
+    var p1 = $("newPw").value, p2 = $("newPw2").value;
+    if (p1.length < 4) { toast("4자 이상 입력하세요"); return; }
+    if (p1 !== p2) { toast("패스워드가 일치하지 않습니다"); return; }
+    var salt = C.salt();
+    C.derive(p1, salt).then(function() {
+      return C.encrypt("CONNECT_VAULT_OK");
+    }).then(function(verify) {
+      cloud.syncConfigPush(salt, verify);
+      return Promise.all([
+        DB.setCfg("salt", salt),
+        DB.setCfg("verify", verify),
+        DB.clear()
+      ]);
+    }).then(function() {
+
+      hideOverlay("oSetup");
+      $("newPw").value = ""; $("newPw2").value = "";
+      toast("설정 완료");
+      self.showVault();
+    });
+  },
+  showVault: function() {
+    $("sLogin").style.display = "none";
+    $("sVault").style.display = "flex";
+    $("sVault").classList.add("on");
+    this._refresh();
+  },
+  lock: function() {
+    C.key = null;
+    this._cache = [];
+    $("sVault").style.display = "none";
+    $("sVault").classList.remove("on");
+    $("sLogin").style.display = "flex";
+    $("sLogin").classList.add("on");
+    $("pwIn").value = "";
+  },
+  _refresh: function() {
+    // 마스터 패스워드 입력 전(C.key 없음)에는 조용히 종료
+    if (!C.key) return Promise.resolve();
+    var self = this;
+    return DB.getAll().then(function(all) {
+      return Promise.all(all.map(function(e) {
+        // 필드 유효성 확인 후 개별 복호화 — 하나가 실패해도 나머지는 정상 표시
+        var svcP = (e.esvc && e.esvc.byteLength > 12)
+          ? C.decrypt(e.esvc).catch(function() { return "[복호화 오류]"; })
+          : Promise.resolve("[데이터 없음]");
+        var usrP = (e.eusr && e.eusr.byteLength > 12)
+          ? C.decrypt(e.eusr).catch(function() { return ""; })
+          : Promise.resolve("");
+        var memoP = (e.ememo && e.ememo.byteLength >= 28)
+          ? C.decrypt(e.ememo).catch(function() { return ""; })
+          : Promise.resolve("");
+        // 비밀번호도 미리 복호화 — copyPw가 동기적으로 실행돼야 제스처 컨텍스트 유지됨
+        var pwP = (e.epw && e.epw.byteLength > 12)
+          ? C.decrypt(e.epw).catch(function() { return ""; })
+          : Promise.resolve("");
+        return Promise.all([svcP, usrP, memoP, pwP]).then(function(r) {
+          return {id: e.id, type: e.tp || "login", svc: r[0], usr: r[1], memo: r[2], pw: r[3], epw: e.epw, ts: e.ts};
+        });
+      }));
+    }).then(function(decrypted) {
+      self._cache = decrypted;
+      self.render();
+    }).catch(function(err) {
+      console.error("_refresh 오류:", err);
+    });
+  },
+  render: function() {
+    var q = ($("srchIn").value || "").toLowerCase();
+    var body = $("vBody");
+    var filtered = this._cache.filter(function(e) {
+      return e.svc.toLowerCase().indexOf(q) !== -1 || e.usr.toLowerCase().indexOf(q) !== -1;
+    });
+    if (!filtered.length) {
+      body.innerHTML = "<div class='empty'><div class='bigIco'>🔒</div><p>" + (q ? "검색 결과 없음" : "저장된 항목이 없습니다") + "</p></div>";
+      return;
+    }
+    body.innerHTML = filtered.map(function(e) {
+      var tp = e.type || "login";
+      var inner;
+      if (tp === "note") {
+        inner =
+          "<div class='pAvatar noteAvatar'>📝</div>" +
+          "<div class='pInfo'>" +
+            "<div class='pSvc'>" + esc(e.svc) + "</div>" +
+            "<div class='pUsr'>" + esc((e.memo || "내용 없음").slice(0, 50)) + "</div>" +
+          "</div>" +
+          "<div class='pActs'>" +
+            "<button class='smBtn ok' id='cpBtn" + e.id + "' onclick='app.copyPw(" + e.id + ")' title='내용 복사'>📋</button>" +
+            "<button class='smBtn edit' onclick='app.editEntry(" + e.id + ")'>✏️</button>" +
+            "<button class='smBtn del' onclick='app.del(" + e.id + ")'>🗑</button>" +
+          "</div>";
+      } else if (tp === "card") {
+        var ex = {};
+        try { ex = JSON.parse(e.memo || "{}"); } catch(xe) {}
+        inner =
+          "<div class='pAvatar cardAvatar'>💳</div>" +
+          "<div class='pInfo'>" +
+            "<div class='pSvc'>" + esc(e.svc) + "</div>" +
+            "<div class='pUsr'>" + esc(maskCard(e.usr)) + "</div>" +
+            "<div class='pPw' id='pw" + e.id + "'>CVV •••</div>" +
+            (ex.expiry ? "<div class='pExtra'>" + esc(ex.expiry) + (ex.holder ? " · " + esc(ex.holder) : "") + "</div>" : "") +
+          "</div>" +
+          "<div class='pActs'>" +
+            "<button class='smBtn' onclick='app.togglePw(" + e.id + ")' id='eye" + e.id + "' title='CVV 보기'>🔑</button>" +
+            "<button class='smBtn ok' id='cpBtn" + e.id + "' onclick='app.copyPw(" + e.id + ")' title='카드번호 복사'>📋</button>" +
+            "<button class='smBtn edit' onclick='app.editEntry(" + e.id + ")'>✏️</button>" +
+            "<button class='smBtn del' onclick='app.del(" + e.id + ")'>🗑</button>" +
+          "</div>";
+      } else {
+        inner =
+          "<div class='pAvatar' style='background:" + avatarColor(e.svc) + "'>" + avatarLetter(e.svc) + "</div>" +
+          "<div class='pInfo'>" +
+            "<div class='pSvc'>" + esc(e.svc) + "</div>" +
+            "<div class='pUsr'>" + esc(e.usr || "—") + "</div>" +
+            "<div class='pPw' id='pw" + e.id + "'>••••••••</div>" +
+            (e.memo ? "<div class='pMemo'><span>📝 " + esc(e.memo.slice(0, 40)) + "</span></div>" : "") +
+          "</div>" +
+          "<div class='pActs'>" +
+            "<button class='smBtn' onclick='app.togglePw(" + e.id + ")' id='eye" + e.id + "'>👁</button>" +
+            "<button class='smBtn ok' id='cpBtn" + e.id + "' onclick='app.copyPw(" + e.id + ")'>📋</button>" +
+            "<button class='smBtn edit' onclick='app.editEntry(" + e.id + ")'>✏️</button>" +
+            "<button class='smBtn del' onclick='app.del(" + e.id + ")'>🗑</button>" +
+          "</div>";
+      }
+      return "<div class='pCard' id='c" + e.id + "'>" + inner + "</div>";
+    }).join("");
+  },
+  _revealed: {},
+  togglePw: function(id) {
+    var el = $("pw" + id);
+    var cached = this._cache.filter(function(x) { return x.id === id; })[0];
+    if (!cached || !el) return;
+    var tp = cached.type || "login";
+    if (this._revealed[id]) {
+      el.textContent = tp === "card" ? "CVV •••" : "••••••••";
+      delete this._revealed[id];
+      return;
+    }
+    if (!cached.pw) { toast("복호화 실패"); return; }
+    el.textContent = tp === "card" ? ("CVV " + cached.pw) : cached.pw;
+    this._revealed[id] = true;
+  },
+  _flashCopied: function(btn) {
+    if (!btn) return;
+    var orig = btn.textContent;
+    btn.textContent = "✅";
+    btn.classList.add("copied");
+    setTimeout(function() {
+      btn.textContent = orig;
+      btn.classList.remove("copied");
+    }, 1500);
+  },
+  copyPw: function(id) {
+    var self = this;
+    var cached = this._cache.filter(function(x) { return x.id === id; })[0];
+    if (!cached) return;
+    var tp = cached.type || "login";
+    // 카드→카드번호, 노트→내용, 로그인→비밀번호
+    var text = tp === "card" ? cached.usr : tp === "note" ? cached.memo : cached.pw;
+    if (!text) { toast("복사할 내용이 없습니다"); return; }
+    copyToClipboard(text)
+      .then(function() { self._flashCopied($("cpBtn" + id)); })
+      .catch(function() { toast("클립보드 접근 실패"); });
+  },
+  _addType: "login",
+  openAdd: function(type) {
+    this._addType = type;
+    var titles = {login: "🔐 로그인 추가", note: "📝 안심 노트 추가", card: "💳 신용카드 추가"};
+    $("addTitle").textContent = titles[type] || "새 항목 추가";
+    $("addLogin").style.display = type === "login" ? "" : "none";
+    $("addNote").style.display  = type === "note"  ? "" : "none";
+    $("addCard").style.display  = type === "card"  ? "" : "none";
+    // 안심 노트일 때만 패널을 화면 높이에 맞게 확장
+    $("addPanel").className = "mPanel" + (type === "note" ? " notePanel" : "");
+    hideOverlay("oType");
+    showOverlay("oAdd");
+  },
+  addEntry: function() {
+    var self = this;
+    var tp = this._addType || "login";
+    var p;
+    if (tp === "note") {
+      var nTitle = $("aNoteTitle").value.trim(), nBody = $("aNoteContent").value.trim();
+      if (!nTitle) { toast("제목을 입력하세요"); return; }
+      p = Promise.all([C.encrypt(nTitle), C.encrypt(""), C.encrypt(""), C.encrypt(nBody || "")]);
+    } else if (tp === "card") {
+      var cName = $("aCardName").value.trim(), cNum = $("aCardNum").value.replace(/\s/g, ""),
+          cCvv  = $("aCardCvv").value.trim();
+      if (!cName) { toast("카드 이름을 입력하세요"); return; }
+      var extra = JSON.stringify({expiry: $("aCardExp").value.trim(), holder: $("aCardHolder").value.trim(), memo: $("aCardMemo").value.trim()});
+      p = Promise.all([C.encrypt(cName), C.encrypt(cNum || ""), C.encrypt(cCvv || ""), C.encrypt(extra)]);
+    } else {
+      var svc = $("aSvc").value.trim(), usr = $("aUsr").value.trim(), pw = $("aPw").value, memo = $("aMemo").value.trim();
+      if (!svc || !pw) { toast("필수 항목을 입력하세요"); return; }
+      p = Promise.all([C.encrypt(svc), C.encrypt(usr || ""), C.encrypt(pw), C.encrypt(memo || "")]);
+    }
+    p.then(function(enc) {
+      return DB.add(enc[0], enc[1], enc[2], enc[3], tp);
+    }).then(function(id) {
+      cloud.syncPush(id);
+      if (tp === "note") { $("aNoteTitle").value = ""; $("aNoteContent").value = ""; }
+      else if (tp === "card") { $("aCardName").value = ""; $("aCardNum").value = ""; $("aCardExp").value = ""; $("aCardCvv").value = ""; $("aCardHolder").value = ""; $("aCardMemo").value = ""; }
+      else { $("aSvc").value = ""; $("aUsr").value = ""; $("aPw").value = ""; $("aMemo").value = ""; }
+      hideOverlay("oAdd"); toast("저장됨");
+      return self._refresh();
+    });
+  },
+  del: function(id) {
+    var self = this;
+    if (!confirm("삭제하시겠습니까?")) return;
+    DB.del(id).then(function() {
+      cloud.syncDel(id);
+      toast("삭제됨");
+      return self._refresh();
+    });
+  },
+  _editId: null,
+  editEntry: function(id) {
+    var cached = this._cache.filter(function(x) { return x.id === id; })[0];
+    if (!cached) return;
+    app._editId = id;
+    var tp = cached.type || "login";
+    var titles = {login: "✏️ 로그인 수정", note: "✏️ 안심 노트 수정", card: "✏️ 신용카드 수정"};
+    $("editTitle").textContent = titles[tp] || "✏️ 항목 수정";
+    $("editLogin").style.display = tp === "login" ? "" : "none";
+    $("editNote").style.display  = tp === "note"  ? "" : "none";
+    $("editCard").style.display  = tp === "card"  ? "" : "none";
+    // 안심 노트일 때 수정 패널도 화면 높이에 맞게 확장
+    $("editPanel").className = "mPanel" + (tp === "note" ? " notePanel" : "");
+    if (tp === "note") {
+      $("eNoteTitle").value   = cached.svc;
+      $("eNoteContent").value = cached.memo || "";
+    } else if (tp === "card") {
+      var ex = {};
+      try { ex = JSON.parse(cached.memo || "{}"); } catch(xe) {}
+      $("eCardName").value   = cached.svc;
+      $("eCardNum").value    = cached.usr || "";
+      $("eCardExp").value    = ex.expiry  || "";
+      $("eCardHolder").value = ex.holder  || "";
+      $("eCardMemo").value   = ex.memo    || "";
+      $("eCardCvv").value    = cached.pw  || "";
+    } else {
+      $("eSvc").value  = cached.svc;
+      $("eUsr").value  = cached.usr  || "";
+      $("eMemo").value = cached.memo || "";
+      var pwEl = $("ePw"), eyeEl = $("ePwEye");
+      pwEl.type = "password"; pwEl.value = cached.pw || "";
+      pwEl.placeholder = "비밀번호";
+      if (eyeEl) eyeEl.textContent = "👁";
+    }
+    showOverlay("oEdit");
+  },
+  saveEdit: function() {
+    var self = this;
+    var id = this._editId;
+    if (!id) { toast("오류"); return; }
+    var cached = this._cache.filter(function(x) { return x.id === id; })[0];
+    var tp = (cached && cached.type) || "login";
+    var p;
+    if (tp === "note") {
+      var nTitle = $("eNoteTitle").value.trim(), nBody = $("eNoteContent").value.trim();
+      if (!nTitle) { toast("제목 필수"); return; }
+      p = Promise.all([C.encrypt(nTitle), C.encrypt(""), C.encrypt(""), C.encrypt(nBody || "")]);
+    } else if (tp === "card") {
+      var cName = $("eCardName").value.trim(), cNum = $("eCardNum").value.replace(/\s/g, ""),
+          cExp  = $("eCardExp").value.trim(),  cCvv = $("eCardCvv").value.trim(),
+          cHolder = $("eCardHolder").value.trim(), cMemo = $("eCardMemo").value.trim();
+      if (!cName) { toast("카드 이름 필수"); return; }
+      var extra = JSON.stringify({expiry: cExp, holder: cHolder, memo: cMemo});
+      p = Promise.all([C.encrypt(cName), C.encrypt(cNum || ""), C.encrypt(cCvv || ""), C.encrypt(extra)]);
+    } else {
+      var svc = $("eSvc").value.trim(), usr = $("eUsr").value.trim(),
+          pw = $("ePw").value, memo = $("eMemo").value.trim();
+      if (!svc) { toast("서비스명 필수"); return; }
+      if (!pw)  { toast("비밀번호를 입력하세요"); return; }
+      p = Promise.all([C.encrypt(svc), C.encrypt(usr || ""), C.encrypt(pw), C.encrypt(memo || "")]);
+    }
+    p.then(function(enc) {
+      return DB.update(id, enc[0], enc[1], enc[2], enc[3]);
+    }).then(function() {
+      cloud.syncPush(id);
+      self._editId = null;
+      return self._refresh();
+    }).then(function() {
+      hideOverlay("oEdit"); toast("수정됨");
+    });
+  },
+  copyCardNum: function() {
+    var num = ($("eCardNum").value || "").replace(/\s/g, "");
+    if (!num) { toast("카드 번호를 입력하세요"); return; }
+    copyToClipboard(num)
+      .then(function() { app._flashCopied($("eCardNumCopy")); toast("카드번호 복사됨"); })
+      .catch(function() { toast("클립보드 접근 실패"); });
+  },
+  copyEditPw: function() {
+    var self = this;
+    var pw = $("ePw").value;
+    if (!pw) { toast("비밀번호를 먼저 불러오세요"); return; }
+    copyToClipboard(pw)
+      .then(function() { self._flashCopied($("ePwCopy")); })
+      .catch(function() { toast("클립보드 접근 실패 — 브라우저 권한 확인"); });
+  },
+  exportVault: function() {
+    var all, salt, verify;
+    DB.getAll().then(function(a) {
+      all = a;
+      return DB.getCfg("salt");
+    }).then(function(s) {
+      salt = s;
+      return DB.getCfg("verify");
+    }).then(function(v) {
+      verify = v;
+      var data = {
+        v: 3, app: "ConnectVault", at: new Date().toISOString(),
+        salt: b64(salt), verify: b64(verify),
+        entries: all.map(function(e) {
+          return {
+            id: e.id,
+            esvc: b64(e.esvc),
+            eusr: b64(e.eusr),
+            epw: b64(e.epw),
+            ememo: (e.ememo && e.ememo.byteLength > 0) ? b64(e.ememo) : "",
+            tp: e.tp || "login",
+            ts: e.ts
+          };
+        })
+      };
+      dl(JSON.stringify(data, null, 2), "vault_backup.json", "application/json");
+    });
+  },
+  importVault: function(input) {
+    var self = this;
+    var file = input.files[0]; if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        var d = JSON.parse(e.target.result);
+        if (d.v !== 3) throw new Error("형식 오류 (v3 필요 — 암호화된 메타데이터 형식)");
+        var salt = unb64(d.salt), verify = unb64(d.verify);
+        DB.setCfg("salt", salt).then(function() {
+          return DB.setCfg("verify", verify);
+        }).then(function() {
+          return DB.clear();
+        }).then(function() {
+          var promises = d.entries.map(function(x) {
+            return DB.add(unb64(x.esvc), unb64(x.eusr), unb64(x.epw), x.ememo ? unb64(x.ememo) : null, x.tp || "login");
+          });
+          return Promise.all(promises);
+        }).then(function() {
+          toast("가져오기 완료");
+          return self._refresh();
+        });
+      } catch(ex) { toast("오류: " + ex.message); }
+    };
+    reader.readAsText(file);
+  },
+  importMigrate: function(input) {
+    var self = this;
+    var file = input.files[0]; if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        var d = JSON.parse(e.target.result);
+        var promises = d.entries.map(function(x) {
+          return Promise.all([
+            C.encrypt(x.service || ""),
+            C.encrypt(x.username || ""),
+            C.encrypt(x.password || ""),
+            C.encrypt("")
+          ]).then(function(enc) {
+            return DB.add(enc[0], enc[1], enc[2], enc[3]);
+          });
+        });
+        Promise.all(promises).then(function() {
+          toast("가져오기 완료");
+          return self._refresh();
+        });
+      } catch(ex) { toast("오류: " + ex.message); }
+    };
+    reader.readAsText(file);
+  }
+};
+
+var genOpts = { upper: true, lower: true, num: true, sym: true };
+function toggleChip(el) {
+  var k = el.dataset.k;
+  genOpts[k] = !genOpts[k];
+  el.classList.toggle("active", genOpts[k]);
+  genPw();
+}
+function genPw() {
+  var len = +document.getElementById("lenSlider").value;
+  var lenVal = document.getElementById("lenVal");
+  if(lenVal) lenVal.textContent = len;
+  var chars = "";
+  if (genOpts.upper) chars += "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  if (genOpts.lower) chars += "abcdefghijklmnopqrstuvwxyz";
+  if (genOpts.num) chars += "0123456789";
+  if (genOpts.sym) chars += "!@#$%^&*()-_=+[]{}|;:,.<>?";
+  var out = document.getElementById("genOut");
+  if (!chars) { if(out) out.textContent = "옵션을 선택하세요"; return; }
+  var arr = crypto.getRandomValues(new Uint8Array(len));
+  if(out) out.textContent = Array.prototype.map.call(arr, function(b) { return chars[b % chars.length]; }).join("");
+}
+function copyGen() {
+  var out = document.getElementById("genOut");
+  if(out) copyToClipboard(out.textContent)
+    .then(function() { toast("복사됨"); })
+    .catch(function() { toast("클립보드 접근 실패"); });
+}
+function esc(s) {
+  if(!s) return "";
+  return s.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function maskCard(num) {
+  var clean = (num || "").replace(/\s/g, "");
+  if (!clean) return "•••• •••• •••• ••••";
+  return "•••• •••• •••• " + clean.slice(-4);
+}
+function fmtCard(el) {
+  var v = el.value.replace(/\D/g, "").slice(0, 16);
+  el.value = v.replace(/(\d{4})(?=\d)/g, "$1 ");
+}
+function fmtExp(el) {
+  var v = el.value.replace(/\D/g, "").slice(0, 4);
+  if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
+  el.value = v;
+}
+function dl(content, filename, type) {
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([content], { type: type }));
+  a.download = filename;
+  a.click();
+}
+
+app.init();
+</script></body></html>
