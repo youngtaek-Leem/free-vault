@@ -748,18 +748,21 @@ var cloud = {
     syncStatus.syncing("데이터 불러오는 중...");
     return this.client.from("vault_entries").select("*").then(function(res) {
       if(res.error) throw res.error;
-      var promises = res.data.map(function(item) {
-        return DB.addWithId(
-          item.local_id,
-          unb64(item.svc),
-          unb64(item.usr),
-          unb64(item.epw),
-          item.memo ? unb64(item.memo) : null,
-          item.ts,
-          item.tp || "login"
-        );
+      // 풀싱크: 로컬 초기화 후 서버 데이터로 교체 (삭제된 항목 잔존 방지)
+      return DB.clear().then(function() {
+        var promises = res.data.map(function(item) {
+          return DB.addWithId(
+            item.local_id,
+            unb64(item.svc),
+            unb64(item.usr),
+            unb64(item.epw),
+            item.memo ? unb64(item.memo) : null,
+            item.ts,
+            item.tp || "login"
+          );
+        });
+        return Promise.all(promises);
       });
-      return Promise.all(promises);
     }).then(function() {
       syncStatus.ok("동기화 완료");
       app._refresh();
@@ -834,30 +837,22 @@ var app = {
     var self = this;
     var pw = $("pwIn").value;
     if (!pw) { toast("패스워드를 입력하세요"); return; }
+    // 클라우드 연결 시 항상 서버 salt를 먼저 가져옴
+    // → 로컬에 다른 salt가 있어도 Supabase 항목과 일치하는 salt를 사용
+    var configSync = cloud.user
+      ? cloud.syncConfigPull().catch(function() { return Promise.resolve(); })
+      : Promise.resolve();
     var salt, verify;
-    DB.getCfg("salt").then(function(s) {
+    configSync.then(function() {
+      return DB.getCfg("salt");
+    }).then(function(s) {
       salt = s;
       return DB.getCfg("verify");
     }).then(function(v) {
       verify = v;
-      if (!salt || !verify) {
-        if (cloud.user) {
-          return cloud.syncConfigPull().then(function() {
-            return DB.getCfg("salt");
-          }).then(function(s2) {
-            salt = s2;
-            return DB.getCfg("verify");
-          }).then(function(v2) {
-            verify = v2;
-            if (!salt || !verify) throw new Error("SETUP_REQUIRED");
-            return C.derive(pw, salt);
-          });
-        }
-        throw new Error("SETUP_REQUIRED");
-      }
+      if (!salt || !verify) throw new Error("SETUP_REQUIRED");
       return C.derive(pw, salt);
     }).then(function() {
-
       return C.decrypt(verify);
     }).then(function() {
       self.showVault();
@@ -882,13 +877,18 @@ var app = {
       return C.encrypt("CONNECT_VAULT_OK");
     }).then(function(verify) {
       cloud.syncConfigPush(salt, verify);
+      // 새 마스터PW는 기존 항목과 키가 다르므로 로컬+클라우드 항목 모두 삭제
+      var cloudClear = (cloud.user && cloud.client)
+        ? cloud.client.from("vault_entries").delete().eq("user_id", cloud.user.id)
+            .then(function() {}).catch(function() {})
+        : Promise.resolve();
       return Promise.all([
         DB.setCfg("salt", salt),
         DB.setCfg("verify", verify),
-        DB.clear()
+        DB.clear(),
+        cloudClear
       ]);
     }).then(function() {
-
       hideOverlay("oSetup");
       $("newPw").value = ""; $("newPw2").value = "";
       toast("설정 완료");
