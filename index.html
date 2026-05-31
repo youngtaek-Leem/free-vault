@@ -390,6 +390,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 <div class="mRow"><label>Supabase URL</label><input class="mInput" id="sbUrl" placeholder="https://your-project.supabase.co"></div>
 <div class="mRow"><label>Supabase Anon Key</label><input class="mInput" id="sbKey" placeholder="your-anon-key"></div>
 <button class="btn btnP" onclick="cloud.init()">연결 및 초기화</button>
+<button class="btn" style="background:#333;margin-top:6px;" onclick="cloud.test()">🔍 연결 테스트</button>
 </div>
 <div id="cloudAuth" style="display:none">
 <div class="mRow"><label>이메일</label><input class="mInput" id="cEmail" placeholder="email@example.com"></div>
@@ -680,15 +681,35 @@ var cloud = {
   client: null,
   user: null,
   init: function() {
-    var url = $("sbUrl").value.trim(), key = $("sbKey").value.trim();
+    var url = $("sbUrl").value.trim().replace(/\/+$/, ""), key = $("sbKey").value.trim();
     if(!url || !key) { toast("URL과 Key를 입력하세요"); return; }
+    if(!url.startsWith("https://")) { toast("URL은 https://로 시작해야 합니다"); return; }
     try {
       this.client = supabase.createClient(url, key);
       localStorage.setItem("sb_url", url);
       localStorage.setItem("sb_key", key);
+      $("sbUrl").value = url;
       this.showView();
       toast("연결됨");
-    } catch(e) { toast("연결 실패"); }
+    } catch(e) { toast("연결 실패: " + e.message); }
+  },
+  test: function() {
+    var url = $("sbUrl").value.trim().replace(/\/+$/, ""), key = $("sbKey").value.trim();
+    if(!url || !key) { toast("URL과 Key를 먼저 입력하세요"); return; }
+    toast("🔄 연결 테스트 중...", 10000);
+    fetch(url + "/rest/v1/", {
+      headers: { "apikey": key, "Authorization": "Bearer " + key }
+    }).then(function(r) {
+      if(r.ok || r.status === 200 || r.status === 404) {
+        toast("✅ 연결 성공 (응답: " + r.status + ")");
+      } else if(r.status === 401) {
+        toast("⚠️ Anon Key가 잘못된 것 같습니다 (" + r.status + ")");
+      } else {
+        toast("⚠️ 응답 수신됨 (상태: " + r.status + ")");
+      }
+    }).catch(function(e) {
+      toast("❌ 연결 실패: " + (e.message || "네트워크 오류") + " — Supabase URL을 확인하고 프로젝트가 활성 상태인지 확인하세요", 6000);
+    });
   },
   showView: function() {
     $("cloudSetup").style.display = "none";
