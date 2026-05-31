@@ -1061,7 +1061,7 @@ var app = {
             "<div class='pSvc'>" + esc(e.svc) + "</div>" +
             "<div class='pUsr'>" + esc((e.memo || "내용 없음").slice(0, 50)) + "</div>" +
           "</div>" +
-          "<div class='pActs'>" +
+          "<div class='pActs' onclick='event.stopPropagation()'>" +
             "<button class='smBtn ok' id='cpBtn" + e.id + "' onclick='app.copyPw(" + e.id + ")' title='내용 복사'>📋</button>" +
             "<button class='smBtn edit' onclick='app.editEntry(" + e.id + ")'>✏️</button>" +
             "<button class='smBtn del' onclick='app.del(" + e.id + ")'>🗑</button>" +
@@ -1077,7 +1077,7 @@ var app = {
             "<div class='pPw' id='pw" + e.id + "'>CVV •••</div>" +
             (ex.expiry ? "<div class='pExtra'>" + esc(ex.expiry) + (ex.holder ? " · " + esc(ex.holder) : "") + "</div>" : "") +
           "</div>" +
-          "<div class='pActs'>" +
+          "<div class='pActs' onclick='event.stopPropagation()'>" +
             "<button class='smBtn' onclick='app.togglePw(" + e.id + ")' id='eye" + e.id + "' title='CVV 보기'>🔑</button>" +
             "<button class='smBtn ok' id='cpBtn" + e.id + "' onclick='app.copyPw(" + e.id + ")' title='카드번호 복사'>📋</button>" +
             "<button class='smBtn edit' onclick='app.editEntry(" + e.id + ")'>✏️</button>" +
@@ -1092,14 +1092,14 @@ var app = {
             "<div class='pPw' id='pw" + e.id + "'>••••••••</div>" +
             (e.memo ? "<div class='pMemo'><span>📝 " + esc(e.memo.slice(0, 40)) + "</span></div>" : "") +
           "</div>" +
-          "<div class='pActs'>" +
+          "<div class='pActs' onclick='event.stopPropagation()'>" +
             "<button class='smBtn' onclick='app.togglePw(" + e.id + ")' id='eye" + e.id + "'>👁</button>" +
             "<button class='smBtn ok' id='cpBtn" + e.id + "' onclick='app.copyPw(" + e.id + ")'>📋</button>" +
             "<button class='smBtn edit' onclick='app.editEntry(" + e.id + ")'>✏️</button>" +
             "<button class='smBtn del' onclick='app.del(" + e.id + ")'>🗑</button>" +
           "</div>";
       }
-      return "<div class='pCard' id='c" + e.id + "'>" + inner + "</div>";
+      return "<div class='pCard' id='c" + e.id + "' onclick='app.editEntry(" + e.id + ")' style='cursor:pointer'>" + inner + "</div>";
     }).join("");
   },
   _revealed: {},
