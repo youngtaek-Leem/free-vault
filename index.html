@@ -48,6 +48,8 @@ padding:13px 42px 13px 14px;color:var(--text);font-size:15px;outline:none;transi
 .btnP:active{transform:scale(.98)}
 .btnS{background:rgba(255,255,255,.06);color:var(--text2);border:1px solid var(--border)}
 .btnS:active{background:rgba(255,255,255,.1)}
+.btnBio{background:linear-gradient(135deg,#0ea5e9,#38bdf8);color:#fff;box-shadow:0 4px 15px rgba(14,165,233,.4)}
+.btnBio:active{transform:scale(.98)}
 .divTxt{font-size:12px;color:var(--text3);text-align:center;position:relative}
 .divTxt::before,.divTxt::after{content:"";position:absolute;top:50%;width:38%;height:1px;background:var(--border)}
 .divTxt::before{left:0}.divTxt::after{right:0}
@@ -182,6 +184,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 <button class="eyeBtn" onclick="toggleEye('pwIn',this)">👁</button>
 </div>
 <button class="btn btnP" onclick="app.login()">🔓 금고 열기</button>
+<button class="btn btnBio" id="bioLoginBtn" onclick="app.loginWithBio()" style="display:none"><span id="bioLabel">👆 생체인증으로 열기</span></button>
 <div class="divTxt">또는</div>
 <button class="btn btnS" onclick="showOverlay('oSetup')">마스터 패스워드 설정</button>
 </div>
@@ -274,6 +277,10 @@ input,textarea{user-select:text;-webkit-user-select:text}
 <div class="setRow">
 <div class="setInfo"><h4>마이그레이션 가져오기</h4><p>migrate.py로 변환한 파일</p></div>
 <button class="setBtn blue" onclick="document.getElementById('migrFile').click()">불러오기</button>
+</div>
+<div class="setRow" id="bioSetRow" style="display:none">
+<div class="setInfo"><h4>생체인증</h4><p id="bioSetDesc">Face ID / 지문 / Touch ID</p></div>
+<button class="setBtn blue" id="bioSetBtn" onclick="app.toggleBio()">설정</button>
 </div>
 <div class="setRow">
 <div class="setInfo"><h4>마스터 패스워드 변경</h4><p>모든 데이터 초기화됨</p></div>
@@ -811,8 +818,97 @@ var cloud = {
 };
 
 
+var bio = {
+  supported: function() {
+    return !!window.PublicKeyCredential && location.protocol !== 'file:';
+  },
+  configured: function() {
+    return DB.getCfg('bio_cred_id').then(function(v) { return !!v; });
+  },
+  _label: function() {
+    var ua = navigator.userAgent.toLowerCase();
+    if (/iphone|ipad/.test(ua)) return '🔐 Face ID / Touch ID로 열기';
+    if (/android/.test(ua)) return '👆 지문인증으로 열기';
+    if (/mac os/.test(ua)) return '👆 Touch ID로 열기';
+    return '👆 생체인증으로 열기';
+  },
+  setup: function(masterPw) {
+    if (!this.supported()) {
+      toast('HTTPS 환경에서만 생체인증을 지원합니다');
+      return Promise.resolve(false);
+    }
+    var challenge = crypto.getRandomValues(new Uint8Array(32));
+    var userId = crypto.getRandomValues(new Uint8Array(16));
+    var rpId = location.hostname;
+    return navigator.credentials.create({
+      publicKey: {
+        challenge: challenge,
+        rp: { name: 'Connect Vault', id: rpId },
+        user: { id: userId, name: 'vault-user', displayName: 'Vault User' },
+        pubKeyCredParams: [
+          { alg: -7, type: 'public-key' },
+          { alg: -257, type: 'public-key' }
+        ],
+        authenticatorSelection: {
+          authenticatorAttachment: 'platform',
+          userVerification: 'required',
+          residentKey: 'preferred'
+        },
+        timeout: 60000
+      }
+    }).then(function(cred) {
+      var pwEnc = btoa(unescape(encodeURIComponent(masterPw)));
+      return Promise.all([
+        DB.setCfg('bio_cred_id', b64(cred.rawId)),
+        DB.setCfg('bio_master_pw', pwEnc)
+      ]);
+    }).then(function() {
+      toast('생체인증 설정 완료 ✓');
+      return true;
+    }).catch(function(e) {
+      if (e.name !== 'NotAllowedError') toast('생체인증 설정 실패');
+      return false;
+    });
+  },
+  authenticate: function() {
+    return DB.getCfg('bio_cred_id').then(function(credIdB64) {
+      if (!credIdB64) return null;
+      var credIdBytes = unb64(credIdB64);
+      var challenge = crypto.getRandomValues(new Uint8Array(32));
+      var rpId = location.hostname;
+      return navigator.credentials.get({
+        publicKey: {
+          challenge: challenge,
+          allowCredentials: [{ type: 'public-key', id: credIdBytes.buffer }],
+          userVerification: 'required',
+          rpId: rpId,
+          timeout: 60000
+        }
+      }).then(function() {
+        return DB.getCfg('bio_master_pw');
+      }).then(function(pwEnc) {
+        if (!pwEnc) return null;
+        return decodeURIComponent(escape(atob(pwEnc)));
+      });
+    }).catch(function(e) {
+      if (e.name !== 'NotAllowedError') toast('생체인증 실패');
+      return null;
+    });
+  },
+  remove: function() {
+    return Promise.all([
+      DB.setCfg('bio_cred_id', null),
+      DB.setCfg('bio_master_pw', null)
+    ]).then(function() {
+      toast('생체인증이 해제되었습니다');
+      app._updateBioUI();
+    });
+  }
+};
+
 var app = {
-  _cache: [], // 복호화된 항목 [{id, type, svc, usr, pw, memo, epw, ts}]
+  _cache: [],
+  _masterPw: null, // 복호화된 항목 [{id, type, svc, usr, pw, memo, epw, ts}]
   init: function() {
     var self = this;
     DB.init().then(function() {
@@ -829,13 +925,14 @@ var app = {
       });
       genPw();
       cloud.checkSession();
+      app._updateBioUI();
     }).catch(function(err) {
       console.error(err);
     });
   },
-  login: function() {
+  login: function(autoMasterPw) {
     var self = this;
-    var pw = $("pwIn").value;
+    var pw = autoMasterPw !== undefined ? autoMasterPw : $("pwIn").value;
     if (!pw) { toast("패스워드를 입력하세요"); return; }
     // 클라우드 연결 시 항상 서버 salt를 먼저 가져옴
     // → 로컬에 다른 salt가 있어도 Supabase 항목과 일치하는 salt를 사용
@@ -855,6 +952,7 @@ var app = {
     }).then(function() {
       return C.decrypt(verify);
     }).then(function() {
+      self._masterPw = pw;
       self.showVault();
     }).catch(function(err) {
       if (err.message === "SETUP_REQUIRED") {
@@ -904,11 +1002,13 @@ var app = {
   lock: function() {
     C.key = null;
     this._cache = [];
+    this._masterPw = null;
     $("sVault").style.display = "none";
     $("sVault").classList.remove("on");
     $("sLogin").style.display = "flex";
     $("sLogin").classList.add("on");
     $("pwIn").value = "";
+    this._updateBioUI();
   },
   _refresh: function() {
     // 마스터 패스워드 입력 전(C.key 없음)에는 조용히 종료
@@ -1255,6 +1355,43 @@ var app = {
       } catch(ex) { toast("오류: " + ex.message); }
     };
     reader.readAsText(file);
+  },
+  loginWithBio: function() {
+    var self = this;
+    if (!bio.supported()) { toast('HTTPS 환경에서만 지원됩니다'); return; }
+    bio.authenticate().then(function(pw) {
+      if (pw) self.login(pw);
+    });
+  },
+  toggleBio: function() {
+    var self = this;
+    DB.getCfg('bio_cred_id').then(function(credId) {
+      if (credId) {
+        bio.remove();
+      } else {
+        if (!self._masterPw) { toast('금고를 열고 다시 시도하세요'); return; }
+        bio.setup(self._masterPw).then(function(ok) {
+          if (ok) self._updateBioUI();
+        });
+      }
+    });
+  },
+  _updateBioUI: function() {
+    DB.getCfg('bio_cred_id').then(function(credId) {
+      var isConfigured = !!credId;
+      var bioBtn = $('bioLoginBtn');
+      if (bioBtn) {
+        bioBtn.style.display = (isConfigured && bio.supported()) ? '' : 'none';
+        var lbl = $('bioLabel');
+        if (lbl) lbl.textContent = bio._label();
+      }
+      var bioSetBtn = $('bioSetBtn');
+      var bioSetDesc = $('bioSetDesc');
+      if (bioSetBtn) bioSetBtn.textContent = isConfigured ? '해제' : '설정';
+      if (bioSetDesc) bioSetDesc.textContent = isConfigured ? '생체인증 활성화됨' : 'Face ID / 지문 / Touch ID';
+      var bioSetRow = $('bioSetRow');
+      if (bioSetRow) bioSetRow.style.display = bio.supported() ? '' : 'none';
+    });
   }
 };
 
