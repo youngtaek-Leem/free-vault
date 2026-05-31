@@ -697,24 +697,28 @@ var cloud = {
     var url = $("sbUrl").value.trim().replace(/\/+$/, ""), key = $("sbKey").value.trim();
     if(!url || !key) { toast("URL과 Key를 먼저 입력하세요"); return; }
     toast("🔄 연결 테스트 중...", 10000);
-    // 1단계: URL 도달 가능 여부 (인증 불필요한 health 엔드포인트)
+    // 1단계: URL 도달 가능 여부 (응답 코드에 상관없이 응답 자체가 오면 OK)
     fetch(url + "/auth/v1/health").then(function(r) {
-      if(!r.ok) throw new Error("서버 응답 오류: " + r.status);
-      // 2단계: Key로 실제 인증 테스트
-      var client = supabase.createClient(url, key);
-      return client.auth.getSession();
-    }).then(function(res) {
-      if(res && res.error) throw res.error;
-      toast("✅ URL과 Key 모두 정상입니다. '연결 및 초기화'를 눌러주세요");
-    }).catch(function(e) {
-      var msg = (e && e.message) ? e.message : "알 수 없는 오류";
-      if(msg.indexOf("Load failed") !== -1 || msg.indexOf("fetch") !== -1 || msg.indexOf("network") !== -1) {
-        toast("❌ URL에 연결할 수 없습니다 — Supabase URL을 확인하고 프로젝트가 활성 상태인지 확인하세요", 6000);
-      } else if(msg.indexOf("Invalid API key") !== -1 || msg.indexOf("apikey") !== -1) {
-        toast("❌ Anon Key가 잘못되었습니다 — 대시보드에서 anon public 키를 다시 복사하세요", 6000);
-      } else {
-        toast("⚠️ " + msg, 5000);
+      // 어떤 HTTP 응답이든 오면 서버는 살아있음
+      return r.status;
+    }).catch(function() {
+      return 0; // 네트워크 오류
+    }).then(function(status) {
+      if(status === 0) {
+        toast("❌ URL에 연결할 수 없습니다 — Supabase URL을 확인하거나 프로젝트가 활성 상태인지 확인하세요", 6000);
+        return;
       }
+      // 2단계: 실제 Supabase client로 Key 테스트
+      var client = supabase.createClient(url, key);
+      client.auth.getSession().then(function(res) {
+        if(res.error) {
+          toast("⚠️ Key 오류: " + res.error.message, 5000);
+        } else {
+          toast("✅ 서버 연결 및 Key 정상입니다. '연결 및 초기화'를 눌러주세요");
+        }
+      }).catch(function(e) {
+        toast("⚠️ " + ((e && e.message) || "알 수 없는 오류"), 5000);
+      });
     });
   },
   showView: function() {
