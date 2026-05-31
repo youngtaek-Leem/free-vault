@@ -900,7 +900,12 @@ var cloud = {
           self.user = res.data.user;
           self.showView();
           self.subscribe();
-          self.syncPull();
+          // 반드시 salt/verify를 먼저 가져온 뒤 항목 동기화
+          self.syncConfigPull().then(function() {
+            return self.syncPull();
+          }).catch(function() {
+            return self.syncPull();
+          });
         } else {
           // URL/Key 저장돼 있지만 미로그인 → 바로 로그인 폼 표시
           self.showView();
