@@ -96,18 +96,48 @@ def parse_1pif(path):
 
         # ── 신용카드 ──────────────────────────────────────────────────────────
         elif type_name == "wallet.financial.CreditCard":
-            card_num = sc.get("ccnum", "") or _pif_field(fields, "ccnum", "number")
-            cvv      = sc.get("cvv", "")   or _pif_field(fields, "cvv", "verification_number")
-            expiry   = sc.get("expiry", "") or _pif_field(fields, "expiry")
-            holder   = sc.get("cardholder", "") or _pif_field(fields, "cardholder")
+            # 1PIF 카드 필드는 sections[].fields 안에 n/v 키로 저장됨
+            sec_fields = []
+            for sec in sc.get("sections", []):
+                sec_fields.extend(sec.get("fields", []))
+
+            def _sv(*names):
+                for name in names:
+                    for f in sec_fields:
+                        if f.get("n") == name or f.get("name", "") == name:
+                            v = f.get("v") or f.get("value") or ""
+                            if v:
+                                return str(v)
+                return ""
+
+            # sections 값 우선 (실제 저장값), 없으면 최상위 필드
+            card_num = _sv("ccnum")      or sc.get("ccnum", "")
+            cvv      = _sv("cvv")        or sc.get("cvv", "")
+            holder   = _sv("cardholder") or sc.get("cardholder", "")
+
+            # expiry: sections에서 YYYYMM 정수로 저장됨 (예: 202401)
+            expiry_raw = _sv("expiry")
+            if expiry_raw:
+                expiry = _parse_expiry(expiry_raw)
+            elif sc.get("expiry_mm") and sc.get("expiry_yy"):
+                mm = str(sc["expiry_mm"]).zfill(2)
+                yy = str(sc["expiry_yy"])[2:]
+                expiry = f"{mm}/{yy}"
+            else:
+                expiry = ""
+
+            # 카드번호 4자리씩 띄어쓰기
+            num_clean = (card_num or "").replace(" ", "")
+            num_fmt = " ".join(num_clean[i:i+4] for i in range(0, len(num_clean), 4))
+
             entries.append({
                 "type": "card",
                 "service": title,
-                "username": card_num.replace(" ", ""),
-                "password": cvv,
+                "username": num_fmt,
+                "password": cvv or "",
                 "memo": json.dumps({
-                    "expiry": _parse_expiry(expiry) if expiry else "",
-                    "holder": holder,
+                    "expiry": expiry,
+                    "holder": holder or "",
                     "memo": notes,
                 }, ensure_ascii=False),
             })

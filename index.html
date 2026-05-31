@@ -1283,7 +1283,8 @@ var app = {
       var ex = {};
       try { ex = JSON.parse(cached.memo || "{}"); } catch(xe) {}
       $("eCardName").value   = cached.svc;
-      $("eCardNum").value    = cached.usr || "";
+      var rawNum = (cached.usr || "").replace(/\D/g, "");
+      $("eCardNum").value = rawNum.replace(/(\d{4})(?=\d)/g, "$1 ");
       $("eCardExp").value    = ex.expiry  || "";
       $("eCardHolder").value = ex.holder  || "";
       $("eCardMemo").value   = ex.memo    || "";
