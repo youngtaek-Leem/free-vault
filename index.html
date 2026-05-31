@@ -926,6 +926,7 @@ var app = {
       genPw();
       cloud.checkSession();
       app._updateBioUI();
+      app._tryBioAutoLogin();
     }).catch(function(err) {
       console.error(err);
     });
@@ -1009,6 +1010,7 @@ var app = {
     $("sLogin").classList.add("on");
     $("pwIn").value = "";
     this._updateBioUI();
+    this._tryBioAutoLogin();
   },
   _refresh: function() {
     // 마스터 패스워드 입력 전(C.key 없음)에는 조용히 종료
@@ -1374,6 +1376,18 @@ var app = {
           if (ok) self._updateBioUI();
         });
       }
+    });
+  },
+  _tryBioAutoLogin: function() {
+    var self = this;
+    if (!bio.supported()) return;
+    bio.configured().then(function(isConfigured) {
+      if (!isConfigured) return;
+      setTimeout(function() {
+        bio.authenticate().then(function(pw) {
+          if (pw) self.login(pw);
+        });
+      }, 400);
     });
   },
   _updateBioUI: function() {
