@@ -311,8 +311,8 @@ input,textarea{user-select:text;-webkit-user-select:text}
 <button class="setBtn blue" id="bioSetBtn" onclick="app.toggleBio()">설정</button>
 </div>
 <div class="setRow">
-<div class="setInfo"><h4>마스터 패스워드 변경</h4><p>모든 데이터 초기화됨</p></div>
-<button class="setBtn red" onclick="hideOverlay('oSet');showOverlay('oSetup')">변경</button>
+<div class="setInfo"><h4>마스터 패스워드 변경</h4><p>데이터 유지, 패스워드만 변경</p></div>
+<button class="setBtn red" onclick="hideOverlay('oSet');showOverlay('oChangePw')">변경</button>
 </div>
 <input type="file" id="importFile" accept=".json" style="display:none" onchange="app.importVault(this)">
 <input type="file" id="migrFile" accept=".json" style="display:none" onchange="app.importMigrate(this)">
@@ -359,6 +359,17 @@ input,textarea{user-select:text;-webkit-user-select:text}
 <div class="mRow"><label>메모 (선택)</label><input class="mInput" id="eCardMemo" placeholder="메모..."></div>
 </div>
 <button class="btn btnP" style="margin-top:6px" onclick="app.saveEdit()">수정 저장</button>
+</div>
+</div>
+<!-- CHANGE PASSWORD MODAL -->
+<div class="overlay" id="oChangePw">
+<div class="mPanel">
+<div class="mHdr"><h3>🔑 마스터 패스워드 변경</h3><button class="closeBtn" onclick="hideOverlay('oChangePw')">✕</button></div>
+<p style="font-size:13px;color:var(--text3);margin-bottom:14px">기존 데이터를 유지하면서 패스워드만 변경합니다.</p>
+<div class="mRow"><label>현재 패스워드</label><input class="mInput" type="password" id="cpCurPw" placeholder="현재 마스터 패스워드"></div>
+<div class="mRow"><label>새 패스워드</label><input class="mInput" type="password" id="cpNewPw" placeholder="새 마스터 패스워드 (4자 이상)"></div>
+<div class="mRow"><label>새 패스워드 확인</label><input class="mInput" type="password" id="cpNewPw2" placeholder="동일하게 입력"></div>
+<button class="btn btnP" style="margin-top:6px" onclick="app.changePassword()">변경 완료</button>
 </div>
 </div>
 <!-- SETUP MODAL -->
@@ -1458,6 +1469,80 @@ var app = {
     localStorage.setItem('vaultSort', mode);
     this._refreshBars();
     this.render();
+  },
+  changePassword: function() {
+    var self = this;
+    var curPw  = $("cpCurPw").value;
+    var newPw1 = $("cpNewPw").value;
+    var newPw2 = $("cpNewPw2").value;
+    if (!curPw)           { toast("현재 패스워드를 입력하세요"); return; }
+    if (newPw1.length < 4){ toast("새 패스워드는 4자 이상 입력하세요"); return; }
+    if (newPw1 !== newPw2){ toast("새 패스워드가 일치하지 않습니다"); return; }
+
+    // 1. 현재 패스워드 검증
+    Promise.all([DB.getCfg("salt"), DB.getCfg("verify")]).then(function(r) {
+      var salt = r[0], verify = r[1];
+      if (!salt || !verify) throw new Error("NO_CONFIG");
+      return crypto.subtle.importKey("raw", new TextEncoder().encode(curPw), "PBKDF2", false, ["deriveKey"])
+        .then(function(km) {
+          return crypto.subtle.deriveKey({name:"PBKDF2",salt:salt,iterations:100000,hash:"SHA-256"}, km, {name:"AES-GCM",length:256}, false, ["decrypt"]);
+        })
+        .then(function(oldKey) {
+          var iv = verify.slice(0,12), ct = verify.slice(12);
+          return crypto.subtle.decrypt({name:"AES-GCM",iv:iv}, oldKey, ct);
+        });
+    })
+    // 2. 전체 항목 복호화 (현재 C.key 사용)
+    .then(function() { return DB.getAll(); })
+    .then(function(all) {
+      return Promise.all(all.map(function(e) {
+        var dec = function(buf) {
+          return (buf && buf.byteLength > 12) ? C.decrypt(buf).catch(function(){ return ""; }) : Promise.resolve("");
+        };
+        return Promise.all([dec(e.esvc), dec(e.eusr), dec(e.epw), dec(e.ememo)]).then(function(v) {
+          return {id:e.id, svc:v[0], usr:v[1], pw:v[2], memo:v[3]};
+        });
+      }));
+    })
+    // 3. 새 키 유도
+    .then(function(plain) {
+      var newSalt = C.salt();
+      return C.derive(newPw1, newSalt).then(function() {
+        return {plain: plain, newSalt: newSalt};
+      });
+    })
+    // 4. 새 키로 전체 재암호화 후 DB 업데이트
+    .then(function(d) {
+      return Promise.all(d.plain.map(function(e) {
+        return Promise.all([C.encrypt(e.svc), C.encrypt(e.usr), C.encrypt(e.pw), C.encrypt(e.memo)])
+          .then(function(enc) { return DB.update(e.id, enc[0], enc[1], enc[2], enc[3]); });
+      })).then(function() { return d.newSalt; });
+    })
+    // 5. salt / verify 저장 및 클라우드 동기화
+    .then(function(newSalt) {
+      return C.encrypt("CONNECT_VAULT_OK").then(function(verify) {
+        return Promise.all([DB.setCfg("salt", newSalt), DB.setCfg("verify", verify)])
+          .then(function() {
+            cloud.syncConfigPush(newSalt, verify);
+            cloud.syncPushAll();
+          });
+      });
+    })
+    .then(function() {
+      // 생체인증 저장 패스워드도 갱신
+      self._masterPw = newPw1;
+      bio.configured().then(function(on) {
+        if (on) bio.setup(newPw1);
+      });
+      $("cpCurPw").value = ""; $("cpNewPw").value = ""; $("cpNewPw2").value = "";
+      hideOverlay("oChangePw");
+      toast("패스워드가 변경되었습니다 ✓");
+      return self._refresh();
+    })
+    .catch(function(err) {
+      if (err.message === "NO_CONFIG") toast("설정 정보를 찾을 수 없습니다");
+      else toast("현재 패스워드가 틀렸습니다");
+    });
   },
   loginWithBio: function() {
     var self = this;
