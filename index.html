@@ -122,7 +122,7 @@ color:var(--text);font-size:15px;outline:none;transition:.2s;-webkit-appearance:
 /* TOAST */
 .toast{position:fixed;bottom:calc(80px + var(--sb));left:50%;transform:translateX(-50%) translateY(20px);
 background:rgba(30,30,50,.95);border:1px solid var(--border);border-radius:10px;padding:10px 18px;
-font-size:13px;color:var(--text);opacity:0;pointer-events:none;transition:.25s;z-index:999;white-space:nowrap}
+font-size:13px;color:var(--text);opacity:0;pointer-events:none;transition:.25s;z-index:1100;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 /* GENERATOR */
 .genOut{background:var(--bg3);border-radius:var(--rs);padding:14px;margin-bottom:14px;
@@ -706,7 +706,9 @@ var cloud = {
   },
   signup: function() {
     var self = this;
+    if (!this.client) { toast("먼저 Supabase URL과 Key를 연결하세요"); return; }
     var email = $("cEmail").value.trim(), pw = $("cPw").value;
+    if (!email || !pw) { toast("이메일과 패스워드를 입력하세요"); return; }
     this.client.auth.signUp({email:email, password:pw}).then(function(res) {
       if(res.error) throw res.error;
       toast("가입 확인 이메일을 확인하세요");
@@ -714,14 +716,16 @@ var cloud = {
   },
   login: function() {
     var self = this;
+    if (!this.client) { toast("먼저 Supabase URL과 Key를 연결하세요"); return; }
     var email = $("cEmail").value.trim(), pw = $("cPw").value;
+    if (!email || !pw) { toast("이메일과 패스워드를 입력하세요"); return; }
     this.client.auth.signInWithPassword({email:email, password:pw}).then(function(res) {
       if(res.error) throw res.error;
       self.user = res.data.user;
       self.showView();
       toast("클라우드 로그인 성공");
       return self.syncPull();
-    }).catch(function(e) { toast("실패: " + e.message); });
+    }).catch(function(e) { toast("실패: " + (e.message || "네트워크 오류")); });
   },
   logout: function() {
     this.client.auth.signOut();
@@ -857,7 +861,13 @@ var cloud = {
           self.showView();
           self.subscribe();
           self.syncPull();
+        } else {
+          // URL/Key 저장돼 있지만 미로그인 → 바로 로그인 폼 표시
+          self.showView();
         }
+      }).catch(function() {
+        // 네트워크 오류 시에도 로그인 폼 표시
+        self.showView();
       });
     }
   },
