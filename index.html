@@ -716,16 +716,25 @@ var cloud = {
   },
   login: function() {
     var self = this;
-    if (!this.client) { toast("먼저 Supabase URL과 Key를 연결하세요"); return; }
+    if (!this.client) { toast("☁️ 버튼 → URL·Key 먼저 연결하세요"); return; }
     var email = $("cEmail").value.trim(), pw = $("cPw").value;
     if (!email || !pw) { toast("이메일과 패스워드를 입력하세요"); return; }
+    toast("🔄 로그인 중...", 15000);
+    var timer = setTimeout(function() {
+      toast("⏱ 응답 없음 — Supabase URL을 확인하거나 프로젝트가 활성 상태인지 확인하세요", 5000);
+    }, 12000);
     this.client.auth.signInWithPassword({email:email, password:pw}).then(function(res) {
+      clearTimeout(timer);
       if(res.error) throw res.error;
       self.user = res.data.user;
       self.showView();
-      toast("클라우드 로그인 성공");
+      toast("✅ 클라우드 로그인 성공");
       return self.syncPull();
-    }).catch(function(e) { toast("실패: " + (e.message || "네트워크 오류")); });
+    }).catch(function(e) {
+      clearTimeout(timer);
+      var msg = (e && e.message) ? e.message : "네트워크 오류";
+      toast("❌ 실패: " + msg, 4000);
+    });
   },
   logout: function() {
     this.client.auth.signOut();
